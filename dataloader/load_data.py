@@ -1,7 +1,6 @@
 import scipy.io
 import os
 
-
 def getData(fileName):
     # check fileName:
     files = [x for x in os.listdir("../EMEM算法/datasets/") if x.endswith(".mat")]
