@@ -10,7 +10,7 @@ class DataLoader:
         training_dict = dict()
         label_dict = dict()
 
-        for root, path, files in os.walk("../datasets_resend/"):
+        for root, path, files in os.walk(data_path):
             for file in files:
                 if file.endswith("txt"):
                     if "label" not in file:

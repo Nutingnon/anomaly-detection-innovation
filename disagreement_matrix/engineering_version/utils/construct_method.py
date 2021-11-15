@@ -20,7 +20,7 @@ Output: dict
 
 import numpy as np
 import pandas as pd
-from util_functions import UtilFunctionsDisagreement
+from rank_score_diff import RankScoreDiff
 from threshold_method import Thresholder
 from sklearn import metrics
 
@@ -28,6 +28,7 @@ from sklearn import metrics
 class Constructor:
     def __init__(self, score_matrix, disagreement_series, classifier_names,
                  factor_dict, main_detector_result, main_detector_name):
+
         self.score_matrix_df = pd.DataFrame(score_matrix, columns=classifier_names)
         self.columns = classifier_names
         self.score_matrix_df["disagreement"] = disagreement_series
@@ -40,31 +41,27 @@ class Constructor:
 
     def predict(self):
         self.result = dict()
-        # min
         for threshold in self.thresholder_results.keys():
+            # min
             self.result['min_'+threshold] = self.score_matrix_df.apply(lambda x: np.min([x[p] for p in self.columns]) if x['disagreement'] >= self.thresholder_results[threshold] else x['main_detector'], axis=1)
 
         # max
-        for threshold in self.thresholder_results.keys():
             self.result['max_'+threshold] = self.score_matrix_df.apply(lambda x: np.max([x[p] for p in self.columns]) if x['disagreement'] >= self.thresholder_results[threshold] else x['main_detector'], axis=1)
 
         # mean
-        for threshold in self.thresholder_results.keys():
             self.result['mean_'+threshold] = self.score_matrix_df.apply(lambda x: np.mean([x[p] for p in self.columns]) if x['disagreement'] >= self.thresholder_results[threshold] else x['main_detector'], axis=1)
 
         # median
-        for threshold in self.thresholder_results.keys():
             self.result['median_'+threshold] = self.score_matrix_df.apply(lambda x: np.median([x[p] for p in self.columns]) if x['disagreement'] >= self.thresholder_results[threshold] else x['main_detector'], axis=1)
 
         # disagreement_with_softmax
-        for order_ in ['o_d_i', 'i_d_o']:
-            dis_object = UtilFunctionsDisagreement(order_)
-            tmp_res = dis_object.ensemble_disagreement_score(self.score_matrix, len(self.columns))
-            self.score_matrix_df['tmp_dis'] = tmp_res
-            self.result["disagreement_"+order_] = self.score_matrix_df.apply(lambda x: x['tmp_dis'] if x['disagreement'] >= self.thresholder_results[threshold] else x['main_detector'], axis=1)
-
-            # revert
-            self.score_matrix_df = self.score_matrix_df.drop('tmp_dis', axis=1)
+            for order_ in ['o_d_i', 'i_d_o']:
+                dis_object = RankScoreDiff(order_)
+                tmp_res = dis_object.ensemble_disagreement_score(self.score_matrix, len(self.columns))
+                self.score_matrix_df['tmp_dis'] = tmp_res
+                self.result["disagreement_"+order_] = self.score_matrix_df.apply(lambda x: x['tmp_dis'] if x['disagreement'] >= self.thresholder_results[threshold] else x['main_detector'], axis=1)
+                # revert
+                self.score_matrix_df = self.score_matrix_df.drop('tmp_dis', axis=1)
         return self.result
 
     def evaluate(self, y_true):

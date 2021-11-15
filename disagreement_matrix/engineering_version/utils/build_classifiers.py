@@ -15,6 +15,7 @@ import scipy.io
 from time import time
 import scipy.stats as ss
 from sklearn.preprocessing import RobustScaler
+from sklearn import metrics
 
 # temporary solution for relative imports in case pyod is not installed
 # if pyod is installed, no need to use the following line
@@ -36,7 +37,7 @@ from pyod.models.lscp import LSCP
 
 
 class Classifiers:
-    def __init__(self, base_classifiers_type = 'lofs', random_seed=10, outliers_fraction=0.2):
+    def __init__(self, base_classifiers_type = 'lofs', random_seed=10, outliers_fraction=0.3):
         if base_classifiers_type == "mixed":
             self.outliers_fraction = outliers_fraction
             self.random_state = np.random.RandomState(random_seed)
@@ -44,7 +45,9 @@ class Classifiers:
                              LOF(n_neighbors=20), LOF(n_neighbors=25), LOF(n_neighbors=30),
                              LOF(n_neighbors=35), LOF(n_neighbors=40), LOF(n_neighbors=45),
                              LOF(n_neighbors=50), LOF(n_neighbors=55), LOF(n_neighbors=60)]
-
+            self.score_df = pd.DataFrame()
+            self.main_detector = None
+            self.performance = None
             self.classifiers = {
                 'Histogram-base Outlier Detection (HBOS)': HBOS(
                     contamination=outliers_fraction),
@@ -64,14 +67,14 @@ class Classifiers:
                 'Principal Component Analysis (PCA)': PCA(
                     contamination=outliers_fraction, random_state=self.random_state),
 
-                "COPOD": COPOD(),
+                "COPOD": COPOD()
 
-                'Locally Selective Combinatio (LSCP)': LSCP(
-                    self.detector_list)
+                # 'Locally Selective Combinatio (LSCP)': LSCP(
+                #     self.detector_list)
             }
         elif base_classifiers_type == "lofs":
             self.classifiers = dict(
-                zip(['LOF_' + str(i) for i in range(5, 61, 5)], [LOF(n_neighbors=x) for x in range(5, 51, 5)])
+                zip(['LOF_' + str(i) for i in range(5, 61, 5)], [LOF(n_neighbors=x) for x in range(5, 61, 5)])
             )
 
         else:
@@ -83,22 +86,27 @@ class Classifiers:
     def get_classifiers_length(self):
         return len(self.classifiers)
 
-    def train_helper(self, X, normalizer):
-        trained_clfs = []
+    def train_helper(self, X, y, normalizer):
+        trained_classifiers = []
         clf_scores_dict = dict()
         # Fit the model
         for i, (clf_name, clf) in enumerate(self.classifiers.items()):
-            print(clf_name)
-            # start_time = time.time()
             clf.fit(X)
-            trained_clfs.append((clf_name, clf))
+            trained_classifiers.append((clf_name, clf))
             scores_pred = clf.decision_function(X)
             standard_scores = normalizer().fit_transform(np.reshape(scores_pred, (-1, 1)))
             clf_scores_dict[clf_name] = standard_scores.reshape(-1)
-            # end_time = time.time()
-            # print("cost", (end_time - start_time) // 60, 'minutes')
-            # print('-' * 20)
-        return pd.DataFrame.from_dict(clf_scores_dict)
+        self.score_df = pd.DataFrame.from_dict(clf_scores_dict)
+
+        # calculate AUC score for each base detector to
+        performance = self.score_df.apply(lambda x: metrics.roc_auc_score(y, x), axis=0)
+        self.performance = performance
+        best_performance = self.score_df.columns[np.argmax(performance)]
+        self.main_detector = best_performance
+        return self
+
+    def get_auc_on_base_classifier(self, X, y, output_path1, fname):
+        self.performance.to_excel(output_path1, sheet_name=fname)
 
 
 
