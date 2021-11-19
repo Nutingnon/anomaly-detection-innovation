@@ -47,13 +47,13 @@ def filter_big_data(train_X, train_y, MB):
     return new_train_X, new_train_y
 
 
-def train_classifiers():
+def train_classifiers(base_classifiers_type='lofs'):
     x, y = load_data()
     training_results = dict()
     train_X, train_y = filter_big_data(x, y, 30)
     normalizer = RobustScaler
     score_dfs = dict()
-    clf_initializer = Classifiers()
+    clf_initializer = Classifiers(base_classifiers_type)
     main_detectors = dict()
     performances = dict()
     mp.freeze_support()
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     '''
     # base results is a dictionary
     # its key is file name and its value is a DataFrame with results from scores.
-    base_results = train_classifiers()
+    base_results = train_classifiers('mixed')
     flatten_predict_score_df = dict()
     ensemble_sequence = ['max','min','mean','median','sido','sodi']
     disagreement_sequence = ['std', 'mad', 'sum_rsd', 'std_rsd', 'max_rsd']
@@ -159,7 +159,8 @@ if __name__ == "__main__":
         auc_res[fname] = auc_res[fname].append(pd.Series([best_auc], index=["best_base_auc"]))
 
         # write out the auc_res
-        auc_res[fname].reset_index().to_excel('/Users/kadima/experiment_any/anomaly-detection/disagreement_matrix/engineering_version/auc_results/'+fname+"_auc_collection.xlsx",
+        f_path = "/Users/kadima/experiment_any/anomaly-detection/disagreement_matrix/engineering_version/auc_results_diff_classifier/"
+        auc_res[fname].reset_index().to_excel(f_path+fname+"_auc_collection.xlsx",
                                 header=['combination', 'auc'])
 
         print(fname, 'Done')
