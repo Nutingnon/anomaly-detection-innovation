@@ -37,17 +37,18 @@ from pyod.models.lscp import LSCP
 
 
 class Classifiers:
-    def __init__(self, base_classifiers_type = 'lofs', random_seed=10, outliers_fraction=0.3):
+    def __init__(self, base_classifiers_type='lofs', random_seed=10, outliers_fraction=0.2):
         if base_classifiers_type == "mixed":
             self.outliers_fraction = outliers_fraction
             self.random_state = np.random.RandomState(random_seed)
-            self.detector_list = [LOF(n_neighbors=5), LOF(n_neighbors=10), LOF(n_neighbors=15),
-                             LOF(n_neighbors=20), LOF(n_neighbors=25), LOF(n_neighbors=30),
-                             LOF(n_neighbors=35), LOF(n_neighbors=40), LOF(n_neighbors=45),
-                             LOF(n_neighbors=50), LOF(n_neighbors=55), LOF(n_neighbors=60)]
+            # self.detector_list = [LOF(n_neighbors=5), LOF(n_neighbors=10), LOF(n_neighbors=15),
+            #                  LOF(n_neighbors=20), LOF(n_neighbors=25), LOF(n_neighbors=30),
+            #                  LOF(n_neighbors=35), LOF(n_neighbors=40), LOF(n_neighbors=45),
+            #                  LOF(n_neighbors=50), LOF(n_neighbors=55), LOF(n_neighbors=60)]
             self.score_df = pd.DataFrame()
             self.main_detector = None
             self.performance = None
+            self.y = None
             self.classifiers = {
                 'Histogram-base Outlier Detection (HBOS)': HBOS(
                     contamination=outliers_fraction),
@@ -55,8 +56,8 @@ class Classifiers:
                 'Isolation Forest': IForest(contamination=outliers_fraction,
                                             random_state=self.random_state, n_estimators=280),
 
-                # 'K Nearest Neighbors (KNN)': KNN(
-                #     contamination=outliers_fraction),
+                'K Nearest Neighbors (KNN)': KNN(
+                    contamination=outliers_fraction),
 
                 'Average KNN': KNN(method='mean',
                                    contamination=outliers_fraction),
@@ -103,6 +104,7 @@ class Classifiers:
         self.performance = performance
         best_performance = self.score_df.columns[np.argmax(performance)]
         self.main_detector = best_performance
+        self.y = y
         return self
 
     def get_auc_on_base_classifier(self, X, y, output_path1, fname):

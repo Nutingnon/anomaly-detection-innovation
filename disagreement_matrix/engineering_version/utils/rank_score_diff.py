@@ -18,7 +18,8 @@ def sort_matrix_by_column(score_matrix):
 
 
 def get_elements_rank_by_column(score_matrix):
-    score_matrix = score_matrix.to_numpy()
+    if type(score_matrix) != np.ndarray:
+        score_matrix = score_matrix.to_numpy()
     rank_matrix=ss.rankdata(score_matrix, 'ordinal', axis=0) - 1
     return rank_matrix
 
@@ -37,7 +38,7 @@ def get_rank_score_diff_in_one_row(rank_series, ranked_score_matrix):
 
 # output one row property. input 1xD, output: 1xD
 def get_rank_score_diff_datapoint_property(one_dim_dis_one_row):
-    n_dim = np.sqrt(len(one_dim_dis_one_row))
+    n_dim = int(np.sqrt(len(one_dim_dis_one_row)))
     dis_matrix_one_row = one_dim_dis_one_row.reshape((n_dim, n_dim))
     # [[0,1,2],[0,1,2],[0,1,2]]
     idx_m = np.tile(np.arange(n_dim), (n_dim, 1))
@@ -71,9 +72,7 @@ def translate_property(key, res_array):
 
 class RankScoreDiff:
     # scores_array is an nd_array
-    def __init__(self, order_, scores_array, classifier_names):
-        self.order_ = order_
-        self.classifier_names = classifier_names
+    def __init__(self, scores_array):
         self.rsdm_2d = np.empty_like(scores_array)
         self.rank_matrix = None
         self.sorted_matrix = None
@@ -90,12 +89,11 @@ class RankScoreDiff:
         self.rank_matrix = rank_records
         res_dis_vector = np.apply_along_axis(get_rank_score_diff_in_one_row, 1, rank_records, sorted_matrix)
         self.rsdm_2d = res_dis_vector
-        tmp_df = pd.DataFrame(self.rsdm_2d, columns=self.classifier_names)
         property_array = np.apply_along_axis(get_rank_score_diff_datapoint_property, 1, self.rsdm_2d)
         self.outer_score_matrix = translate_property('outer', property_array)
         self.inner_score_matrix = translate_property('inner', property_array)
-        self.o_d_i = translate_property('o_d_i', property_array)
-        self.i_d_o = translate_property('i_d_o', property_array)
+        self.o_d_i = translate_property('o_d_i', property_array).reshape((sorted_matrix.shape[0], -1))
+        self.i_d_o = translate_property('i_d_o', property_array).reshape((sorted_matrix.shape[0], -1))
         return self
 
     def get_rsd_matrix_2d(self):

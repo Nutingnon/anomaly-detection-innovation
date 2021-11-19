@@ -6,69 +6,97 @@ needs mixed up the outlier scores, instead of directly output the main
 detector's outlier scores.
 
 INPUT:
-- scores_matrix : N x M , N data points, M classifiers
-- disagreement series: N x 1
-- thresholder methods: K
-- factor dict
+- score_df : N x M , N data points, M classifiers
+- disagreement_results: 4 x N x 5,
+    4: [2std, iqr, mad, std],
+    5: ['std', 'mad', "sum_rsd", 'std_rsd', 'max_rsd']
+- rsd_obj
+- main detector name
 
-Output: dict
-- Q as keyword,  N x K as value
-    Q - main detector selection
-    N - data points ensemble scores;
-    K - results of different thresholders' with 1 group factor;
+OUTPUT:
+- combination results, which contains 6 x 4 x 5 = 120 columns.
+
+For a file. then get average over them get final 1 result.
 '''
+
 
 import numpy as np
 import pandas as pd
-from rank_score_diff import RankScoreDiff
-from threshold_method import Thresholder
+from . import threshold_method
 from sklearn import metrics
 
 
 class Constructor:
-    def __init__(self, score_matrix, disagreement_series, classifier_names,
-                 factor_dict, main_detector_result, main_detector_name):
+    def __init__(self, score_df, main_detector_name, rsd_obj, disagreement_result_ndarray):
 
-        self.score_matrix_df = pd.DataFrame(score_matrix, columns=classifier_names)
-        self.columns = classifier_names
-        self.score_matrix_df["disagreement"] = disagreement_series
-        self.score_matrix = score_matrix
-        self.disagreement_series = disagreement_series
-        self.thresholder_results = Thresholder(disagreement_series).get_thresholder_results(factor_dict)
-        self.main_detector_result = main_detector_result
+        self.score_df = score_df
+        self.columns = score_df.columns
         self.main_detector_name = main_detector_name
-        self.score_matrix_df['main_detector'] = main_detector_result
-
-    def predict(self):
-        self.result = dict()
-        for threshold in self.thresholder_results.keys():
-            # min
-            self.result['min_'+threshold] = self.score_matrix_df.apply(lambda x: np.min([x[p] for p in self.columns]) if x['disagreement'] >= self.thresholder_results[threshold] else x['main_detector'], axis=1)
-
+        self.score_matrix = score_df.to_numpy()
+        self.disagreement_ndarray_boolean = disagreement_result_ndarray
+        self.rsd_obj = rsd_obj
+        ensemble_res = dict()
         # max
-            self.result['max_'+threshold] = self.score_matrix_df.apply(lambda x: np.max([x[p] for p in self.columns]) if x['disagreement'] >= self.thresholder_results[threshold] else x['main_detector'], axis=1)
-
+        ensemble_res['max']=np.max(self.score_matrix, axis=1)
+        # min
+        ensemble_res['min']=np.min(self.score_matrix, axis=1)
         # mean
-            self.result['mean_'+threshold] = self.score_matrix_df.apply(lambda x: np.mean([x[p] for p in self.columns]) if x['disagreement'] >= self.thresholder_results[threshold] else x['main_detector'], axis=1)
-
+        ensemble_res['mean']=np.mean(self.score_matrix, axis=1)
         # median
-            self.result['median_'+threshold] = self.score_matrix_df.apply(lambda x: np.median([x[p] for p in self.columns]) if x['disagreement'] >= self.thresholder_results[threshold] else x['main_detector'], axis=1)
+        ensemble_res['median'] = np.mean(self.score_matrix, axis=1)
 
-        # disagreement_with_softmax
-            for order_ in ['o_d_i', 'i_d_o']:
-                dis_object = RankScoreDiff(order_)
-                tmp_res = dis_object.ensemble_disagreement_score(self.score_matrix, len(self.columns))
-                self.score_matrix_df['tmp_dis'] = tmp_res
-                self.result["disagreement_"+order_] = self.score_matrix_df.apply(lambda x: x['tmp_dis'] if x['disagreement'] >= self.thresholder_results[threshold] else x['main_detector'], axis=1)
-                # revert
-                self.score_matrix_df = self.score_matrix_df.drop('tmp_dis', axis=1)
-        return self.result
+        # softmax with ido
+        ensemble_res['sido'] = np.sum(self.score_matrix * self.rsd_obj.i_d_o, axis=1)
+
+        # softmax with odi
+        ensemble_res['sodi'] = np.sum(self.score_matrix * self.rsd_obj.o_d_i, axis=1)
+        self.ensemble_result_df = pd.DataFrame.from_dict(ensemble_res)
+        self.ensemble_result_df = self.ensemble_result_df.loc[:, ['max','min','mean','median','sido','sodi']]
+        self.ensemble_result_ndarray = self.ensemble_result_df.to_numpy()
+        self.main_detector_array = self.score_df[self.main_detector_name].to_numpy().reshape((-1, 1))
+        self.result_compat = None
+        self.result_flatten_df = None
+
+    def predict(self, flatten_columns):
+        # main detector result [N x 1]
+        # thresh_dis_res [4, N, 5] boolean value
+        # construct res [N, 6]
+        # first, we need to assign main detector result
+        fill_main_detector_score = self.disagreement_ndarray_boolean * self.main_detector_array
+        tmp_results = []
+        for col in range(self.ensemble_result_ndarray.shape[1]):
+            ensem_res_tmp = self.ensemble_result_ndarray[:, [col]]
+            tmp_res = np.where(fill_main_detector_score>0, fill_main_detector_score, ensem_res_tmp)
+            tmp_results.append(tmp_res)
+        self.result_compat = tmp_results
+        result_flatten = np.concatenate(self.result_compat)
+        result_flatten = np.vstack([result_flatten[:, i, :].reshape(-1) for i in range(self.ensemble_result_df.shape[0])])
+        self.result_flatten_df = pd.DataFrame(result_flatten, columns=flatten_columns)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def evaluate(self, y_true):
         assert self.result is not None and len(self.result.keys()) >= 1
         result_df = pd.DataFrame(self.result)
         ensemble_auc = result_df.apply(lambda x: metrics.roc_auc_score(y_true, x))
-        base_detector_auc = self.score_matrix_df.loc[:, self.columns].apply(lambda x: metrics.roc_auc_score(y_true, x))
+        base_detector_auc = self.score_df.loc[:, self.columns].apply(lambda x: metrics.roc_auc_score(y_true, x))
         return ensemble_auc, base_detector_auc
 
 
