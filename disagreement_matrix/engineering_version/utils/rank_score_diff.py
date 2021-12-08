@@ -4,10 +4,11 @@ import scipy.stats as ss
 
 
 def softmax(score_row):
-    weights = score_row - max(score_row)
-    s = np.exp(weights).sum()
-    weights = np.exp(weights) / s
-    #     smooth_scores = weights * scores_array
+    # weights = score_row - max(score_row)
+    # s = np.exp(weights).sum()
+    # weights = np.exp(weights) / s
+    s = np.sum(score_row)
+    weights = score_row/s
     return weights
 
 
@@ -45,9 +46,9 @@ def get_rank_score_diff_datapoint_property(one_dim_dis_one_row):
     # [[0,0,0],[1,1,1],[2,2,2]]
     idx_n = idx_m.T
     # 1 x D
-    outer_score_sum = np.sum(dis_matrix_one_row[idx_n, idx_m], axis=1).reshape(-1)
+    outer_score_sum = np.maximum(np.sum(dis_matrix_one_row[idx_n, idx_m], axis=1).reshape(-1), 1e-5)
     # 1 x D
-    inner_score_sum = np.sum(dis_matrix_one_row[idx_m, idx_n], axis=1).reshape(-1)
+    inner_score_sum = np.maximum(np.sum(dis_matrix_one_row[idx_m, idx_n], axis=1).reshape(-1), 1e-5)
     # 1 X D
     o_d_i = softmax(outer_score_sum/inner_score_sum)
     # 1 X D
@@ -81,6 +82,8 @@ class RankScoreDiff:
         self.inner_score_matrix = None
         self.o_d_i = None
         self.i_d_o = None
+        self.sum_self = None
+        self.sum_self_inverse = None
 
     def generate_rank_score_diff_property(self):
         sorted_matrix = sort_matrix_by_column(self.scores_array)
@@ -94,6 +97,11 @@ class RankScoreDiff:
         self.inner_score_matrix = translate_property('inner', property_array)
         self.o_d_i = translate_property('o_d_i', property_array).reshape((sorted_matrix.shape[0], -1))
         self.i_d_o = translate_property('i_d_o', property_array).reshape((sorted_matrix.shape[0], -1))
+        self.sum_self = self.outer_score_matrix + self.inner_score_matrix
+        sum_self_inverse = np.reciprocal(self.sum_self)
+        sum_self_inverse = sum_self_inverse/np.sum(sum_self_inverse)
+        self.sum_self = np.reshape(self.sum_self/np.sum(self.sum_self),(sorted_matrix.shape[0], -1))
+        self.sum_self_inverse = np.reshape(sum_self_inverse, (sorted_matrix.shape[0], -1))
         return self
 
     def get_rsd_matrix_2d(self):

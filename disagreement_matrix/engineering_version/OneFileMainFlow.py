@@ -50,10 +50,10 @@ def filter_big_data(train_X, train_y, MB):
 def train_classifiers():
     x, y = load_data()
     training_results = dict()
-    train_X, train_y = filter_big_data(x, y, 30)
-    normalizer = RobustScaler
+    train_X, train_y = filter_big_data(x, y, 60)
+    normalizer = RobustScaler # RobustScaler
     score_dfs = dict()
-    clf_initializer = Classifiers()
+    clf_initializer = Classifiers('mixed')
     main_detectors = dict()
     performances = dict()
     mp.freeze_support()
@@ -62,7 +62,7 @@ def train_classifiers():
         # data is an numpy ndarray
         for fname, data in train_X.items():
             # base classifiers
-            training_results[fname] = pool.apply_async(clf_initializer.train_helper, (data, train_y[fname], normalizer))
+            training_results[fname] = pool.apply_async(clf_initializer.train_helper, (data, train_y[fname], normalizer, fname))
         pool.close()
         pool.join()
         for key in training_results:
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     # its key is file name and its value is a DataFrame with results from scores.
     base_results = train_classifiers()
     flatten_predict_score_df = dict()
-    ensemble_sequence = ['max','min','mean','median','sido','sodi']
+    ensemble_sequence = ['max', 'min', 'mean', 'median', 'sido', 'sodi','sum_self','sum_self_inverse']
     disagreement_sequence = ['std', 'mad', 'sum_rsd', 'std_rsd', 'max_rsd']
     threshold_sequence = ['2std', 'iqr', 'mad', 'std']
     a_col = []
@@ -131,15 +131,18 @@ if __name__ == "__main__":
     -   Thresholder. Contains 4 thresholder.
     '''
     auc_res = dict()
+    main_detector_dict = dict()
     for fname in base_results.keys():
-        print("Processing ",fname)
+        print("Processing ", fname)
         # dataframe
         score_df = base_results[fname].score_df
         main_detector = base_results[fname].main_detector
+        main_detector_dict[fname] = main_detector
         best_auc = base_results[fname].performance[main_detector]
         rsd_obj = get_rsd_obj(score_df.to_numpy())
         rank_score_diff_obj_collection_dict[fname] = rsd_obj
         print("\tDone in Calculate RSD Matrix")
+
 
         # dataframe
         disagreement_collection_dict[fname] = get_disagreement(score_df, rsd_obj)
@@ -147,11 +150,20 @@ if __name__ == "__main__":
 
         # matrix: [2std, iqr, mad, std]
         thresholder_is_exceed_matrix_collection[fname] = get_thresholders(disagreement_collection_dict[fname].to_numpy())
+        # write out
+        pd.DataFrame(thresholder_is_exceed_matrix_collection[fname][3, :, 4]).to_excel("/Users/kadima/experiment_any/anomaly-detection/disagreement_matrix/engineering_version/file_disagreement_records/"+fname+"_threshold.xlsx")
+
+
+
         print("\tDone in calculate thresholding")
 
         flatten_predict_score_df[fname] = get_construct_methods(score_df, main_detector, rsd_obj, thresholder_is_exceed_matrix_collection[fname],
                                                                 a_col)
 
+        # write out rsj matrix
+        pd.DataFrame(rank_score_diff_obj_collection_dict[fname].o_d_i).to_excel("/Users/kadima/experiment_any/anomaly-detection/disagreement_matrix/engineering_version/rsj_matrix_records/"+fname+"_odi.xlsx")
+        pd.DataFrame(rank_score_diff_obj_collection_dict[fname].i_d_o).to_excel("/Users/kadima/experiment_any/anomaly-detection/disagreement_matrix/engineering_version/rsj_matrix_records/"+fname + "_ido.xlsx")
+        pd.DataFrame(rank_score_diff_obj_collection_dict[fname].sum_self).to_excel("/Users/kadima/experiment_any/anomaly-detection/disagreement_matrix/engineering_version/rsj_matrix_records/"+fname + "_self_sum.xlsx")
         print("\tDone in calculate construct")
 
         auc_res[fname] = flatten_predict_score_df[fname].apply(lambda x: metrics.roc_auc_score(base_results[fname].y, x), axis=0)
@@ -165,6 +177,7 @@ if __name__ == "__main__":
         print(fname, 'Done')
         print("="*50)
 
+    print(main_detector_dict)
 
 
 

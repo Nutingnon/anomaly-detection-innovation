@@ -50,8 +50,16 @@ class Constructor:
 
         # softmax with odi
         ensemble_res['sodi'] = np.sum(self.score_matrix * self.rsd_obj.o_d_i, axis=1)
+
+        # pure sum
+        ensemble_res['sum_self'] = np.sum(self.score_matrix * np.reshape(self.rsd_obj.sum_self,(-1, self.score_matrix.shape[1])), axis=1)
+
+        # sum inverse
+        ensemble_res['sum_self_inverse'] = np.sum(self.score_matrix * np.reshape(self.rsd_obj.sum_self_inverse,(-1, self.score_matrix.shape[1])), axis=1)
+
+
         self.ensemble_result_df = pd.DataFrame.from_dict(ensemble_res)
-        self.ensemble_result_df = self.ensemble_result_df.loc[:, ['max','min','mean','median','sido','sodi']]
+        self.ensemble_result_df = self.ensemble_result_df.loc[:, ['max','min','mean','median','sido','sodi','sum_self', 'sum_self_inverse']]
         self.ensemble_result_ndarray = self.ensemble_result_df.to_numpy()
         self.main_detector_array = self.score_df[self.main_detector_name].to_numpy().reshape((-1, 1))
         self.result_compat = None
@@ -70,25 +78,11 @@ class Constructor:
             tmp_results.append(tmp_res)
         self.result_compat = tmp_results
         result_flatten = np.concatenate(self.result_compat)
-        result_flatten = np.vstack([result_flatten[:, i, :].reshape(-1) for i in range(self.ensemble_result_df.shape[0])])
+
+        result_flatten = np.vstack([result_flatten[:, i, :].reshape(-1)
+                                    for i in range(self.ensemble_result_df.shape[0])])
+
         self.result_flatten_df = pd.DataFrame(result_flatten, columns=flatten_columns)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

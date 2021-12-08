@@ -48,4 +48,7 @@ def get_thresholder_results(vector, factor_dict=None):
     sorted_list = sorted(threshold_dict.items(), key=lambda x: x[0])
     sorted_threshold = [x[1] for x in sorted_list]
     s = np.asarray(sorted_threshold).reshape((4, 1))
-    return np.less_equal(vector, s)
+    # return np.less_equal(vector, s)
+    res_tmp = np.less_equal(vector, s)
+    res_tmp = np.zeros_like(res_tmp)
+    return res_tmp
