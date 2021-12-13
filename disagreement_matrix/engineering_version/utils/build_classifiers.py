@@ -46,15 +46,15 @@ class Classifiers:
             #                  LOF(n_neighbors=20), LOF(n_neighbors=25), LOF(n_neighbors=30),
             #                  LOF(n_neighbors=35), LOF(n_neighbors=40), LOF(n_neighbors=45),
             #                  LOF(n_neighbors=50), LOF(n_neighbors=55), LOF(n_neighbors=60)]
-            self.detector_list = [
-                HBOS(contamination=self.outliers_fraction),
-                IForest(contamination=self.outliers_fraction, random_state=self.random_state, n_estimators=280),
-                KNN(contamination=outliers_fraction),
-                KNN(method='mean', contamination=outliers_fraction),
-                LOF(n_neighbors=30, contamination=outliers_fraction),
-                PCA(contamination=outliers_fraction, random_state=self.random_state),
-                COPOD()
-            ]
+            # self.detector_list = [
+            #     HBOS(contamination=self.outliers_fraction),
+            #     IForest(contamination=self.outliers_fraction, random_state=self.random_state, n_estimators=280),
+            #     KNN(contamination=outliers_fraction),
+            #     KNN(method='mean', contamination=outliers_fraction),
+            #     LOF(n_neighbors=30, contamination=outliers_fraction),
+            #     PCA(contamination=outliers_fraction, random_state=self.random_state),
+            #     COPOD()
+            # ]
             self.score_df = pd.DataFrame()
             self.main_detector = None
             self.performance = None
@@ -76,10 +76,10 @@ class Classifiers:
                 'Principal Component Analysis (PCA)': PCA(
                     contamination=outliers_fraction, random_state=self.random_state),
 
-                "COPOD": COPOD(),
-
-                'Locally Selective Combinatio (LSCP)': LSCP(
-                    self.detector_list)
+                "COPOD": COPOD()
+                #
+                # 'Locally Selective Combinatio (LSCP)': LSCP(
+                #     self.detector_list)
             }
         elif base_classifiers_type == "lofs":
             self.classifiers = dict(
