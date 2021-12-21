@@ -30,9 +30,9 @@ class Constructor:
     def __init__(self, score_df, main_detector_name, rsd_obj, disagreement_result_ndarray):
 
         self.score_df = score_df
-        self.columns = score_df.columns
+        self.columns = np.arange(score_df.shape[1]) # score_df.columns
         self.main_detector_name = main_detector_name
-        self.score_matrix = score_df.to_numpy()
+        self.score_matrix = score_df
         self.disagreement_ndarray_boolean = disagreement_result_ndarray
         self.rsd_obj = rsd_obj
         ensemble_res = dict()
@@ -61,7 +61,7 @@ class Constructor:
         self.ensemble_result_df = pd.DataFrame.from_dict(ensemble_res)
         self.ensemble_result_df = self.ensemble_result_df.loc[:, ['max','min','mean','median','sido','sodi','sum_self', 'sum_self_inverse']]
         self.ensemble_result_ndarray = self.ensemble_result_df.to_numpy()
-        self.main_detector_array = self.score_df[self.main_detector_name].to_numpy().reshape((-1, 1))
+        self.main_detector_array = self.score_df[:, [main_detector_name]].reshape((-1, 1))
         self.result_compat = None
         self.result_flatten_df = None
 
@@ -83,8 +83,6 @@ class Constructor:
                                     for i in range(self.ensemble_result_df.shape[0])])
 
         self.result_flatten_df = pd.DataFrame(result_flatten, columns=flatten_columns)
-
-
 
     def evaluate(self, y_true):
         assert self.result is not None and len(self.result.keys()) >= 1

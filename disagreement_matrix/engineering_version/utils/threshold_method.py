@@ -31,7 +31,7 @@ def two_std_thresholder(vector, factor=2.5):
 
 
 # return [4, N, 5]
-def get_thresholder_results(vector, factor_dict=None):
+def get_thresholder_results(vector, zeros_like=False, factor_dict=None):
     threshold_dict = dict()
     # sorted key is aligned with the following sequence. [2std, iqr, mad, std]
     if factor_dict is not None:
@@ -50,5 +50,6 @@ def get_thresholder_results(vector, factor_dict=None):
     s = np.asarray(sorted_threshold).reshape((4, 1))
     # return np.less_equal(vector, s)
     res_tmp = np.less_equal(vector, s)
-    res_tmp = np.zeros_like(res_tmp)
+    if zeros_like:
+        res_tmp = np.zeros_like(res_tmp)
     return res_tmp

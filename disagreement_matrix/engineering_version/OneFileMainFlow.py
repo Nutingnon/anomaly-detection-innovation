@@ -83,8 +83,8 @@ def get_rsd_obj(score_nd_array):
     return rsdiff_obj
 
 
-def get_thresholders(disagreement_nd_array):
-    s = np.apply_along_axis(get_thresholder_results, 0, disagreement_nd_array)
+def get_thresholders(disagreement_nd_array,zeros_like=False):
+    s = np.apply_along_axis(get_thresholder_results, 0, disagreement_nd_array, zeros_like)
     return s
 
 
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         print("\tDone in calculate disagreement")
 
         # matrix: [2std, iqr, mad, std]
-        thresholder_is_exceed_matrix_collection[fname] = get_thresholders(disagreement_collection_dict[fname].to_numpy())
+        thresholder_is_exceed_matrix_collection[fname] = get_thresholders(disagreement_collection_dict[fname].to_numpy(), zeros_like=False)
         # write out
         pd.DataFrame(thresholder_is_exceed_matrix_collection[fname][3, :, 4]).to_excel("/Users/kadima/experiment_any/anomaly-detection/disagreement_matrix/engineering_version/file_disagreement_records/"+fname+"_threshold.xlsx")
 
